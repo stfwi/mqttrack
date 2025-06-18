@@ -1,0 +1,5 @@
+*.md eol=lf
+*.sum eol=lf
+*.go eol=lf
+*.txt eol=lf
+*.json eol=lf
