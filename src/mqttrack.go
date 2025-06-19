@@ -65,6 +65,12 @@ func (me *AppSettings) SetExampleValues() {
 	}
 	me.Recorder = recorder.Settings{
 		RootDirectory: "./data",
+		TopicFilters: []string{
+			"home/**/power",
+			"plug?/energy",
+			"switch/*/enable",
+			"home/doors/**",
+		},
 	}
 	me.LogFile = "stdout OR stderr OR file path"
 }
@@ -103,7 +109,7 @@ func processCLIArgs() (bool, AppSettings, error) {
 func main() {
 
 	// Settings
-	isVerbose, settings, err := processCLIArgs()
+	isverbose, settings, err := processCLIArgs()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -122,6 +128,9 @@ func main() {
 		}
 		defer f.Close()
 		log.SetOutput(f)
+	}
+	if isverbose {
+		settings.Recorder.Verbose = true
 	}
 
 	// Module init
@@ -148,8 +157,8 @@ func main() {
 	for quit := false; !quit; {
 		select {
 		case data := <-node.Data:
-			if isVerbose {
-				log.Print("Data: " + data.Topic() + " = " + string(data.Data()))
+			if isverbose {
+				log.Print("Incoming: " + data.Topic() + " = " + string(data.Data()))
 			}
 			recorder.Write(data)
 			continue

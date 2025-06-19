@@ -1,6 +1,6 @@
 # MQTTrack - CSV File Tree Topic Recorder
 
-Simple storage data tracker/recorder for MQTT data.
+Simple tracker/recorder for MQTT message data.
 
   - Stores MQTT topic payloads with timestamps (CSV format `timestamp,data`) in singulated
     files for each topic.
@@ -9,11 +9,18 @@ Simple storage data tracker/recorder for MQTT data.
 
   - Updates the tracking files on value change only (and on startup)
 
+  - Optionally rotates and archives (gzip) CSV files depending on file size settings.
+
+  - Optionally allows `fnmatch` wildcard filtering in addition to the MQTT subscription selection.
+
+  - JSON config file format to facilitate API based config changes.
+
 ### Building and Depencencies
 
   - Dep: Minimal GO version go1.24.2.
   - Dep: Optional GNU Make
   - Dep: `eclipse/paho.mqtt.golang`, `gorilla/websocket` (implicit)
+  - Dep: `baulk/bloat/tree/master/utils/fnmatch` (implicit)
 
   - Build: `cd src && go build` or `make dist`
 
@@ -45,15 +52,26 @@ Simple storage data tracker/recorder for MQTT data.
       "validate_broker_cert": false,
       // Subscriptions
       "topics": [
-      "#", // <-- default everything
+      "#", // <-- default everything if no topics specified
       "or/specific/topic1",
       "or/specific/topic2"
       ]
     },
     "recorder": {
-      // Data storage path, rotate at 1MB file size
+      // Data storage path, rotate at 1MB file size,
+      // compress previous record archive file.
       "rootdir": "./data",
-      "rotate_at_size": 1024
+      "rotate_at_size": 1024,
+      "gzip_rotated": true,
+      // Recorder filters using `fnmatch` patterns
+      // (extended wildcards). Prefer a good subscription
+      // setting first to reduce unnecessary load.
+      "filters": [
+        "home/**/power",
+        "plug?/energy",
+        "switch/*/enable",
+        "home/doors/**"
+      ],
     },
     // Logging
     "logfile": "stdout OR stderr OR file path"
@@ -115,7 +133,5 @@ Data format in looks as in e.g. `plug2/power`:
 ### Pending Functional Tasks
 
   - [ ] Client certificates (config already there)
-  - [ ] Topic filter (regex/fnmatch based out-filter in addition to the subscription selection)
-
 
 73 .-.-.-

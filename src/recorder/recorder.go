@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"mqttrack/fnmatch"
 	"os"
 	"os/exec"
 	"path"
@@ -25,9 +26,11 @@ type Record interface {
 }
 
 type Settings struct {
-	RootDirectory    string `json:"rootdir"`
-	RotationFileSize uint   `json:"rotate_at_size"`
-	GZipRotated      bool   `json:"gzip_rotated"`
+	RootDirectory    string   `json:"rootdir"`
+	RotationFileSize uint     `json:"rotate_at_size"`
+	GZipRotated      bool     `json:"gzip_rotated"`
+	TopicFilters     []string `json:"filters"`
+	Verbose          bool     `json:"-"`
 }
 
 type Recorder struct {
@@ -86,6 +89,7 @@ func (me *Recorder) rotate(filepath string) error {
 		}
 		rotindex += 1
 		newpath := fmt.Sprintf("%s.%d", filepath, rotindex)
+		me.logVerbose("Rotating: ", filepath, "->", newpath)
 		if err := os.Rename(filepath, newpath); err != nil {
 			me.numRotateErrors.Add(1)
 			return fmt.Errorf("renaming record file failed %s->%s: %s", filepath, newpath, err.Error())
@@ -103,10 +107,23 @@ func (me *Recorder) rotate(filepath string) error {
 	return nil
 }
 
+func (me *Recorder) filter(topic string) bool {
+	if len(me.settings.TopicFilters) == 0 {
+		return true
+	}
+	for _, pattern := range me.settings.TopicFilters {
+		if fnmatch.Match(pattern, topic, fnmatch.FNM_NOESCAPE) {
+			return true
+		}
+	}
+	return false
+}
+
 func (me *Recorder) gzip(filepath string) error {
 	if !me.settings.GZipRotated || uint(me.numRotateErrors.Load()) > MaxNumRotateErrors {
 		return nil
 	}
+	me.logVerbose("GZipping ", filepath)
 	cmd := exec.Command("gzip", "-9", filepath)
 	if cmd.Err != nil {
 		me.numRotateErrors.Add(1)
@@ -120,6 +137,12 @@ func (me *Recorder) gzip(filepath string) error {
 	return nil
 }
 
+func (me *Recorder) logVerbose(v ...any) {
+	if me.settings.Verbose {
+		log.Print(v...)
+	}
+}
+
 func (me *Recorder) Open() error {
 	dir := me.settings.RootDirectory
 	if dir == "" {
@@ -128,6 +151,8 @@ func (me *Recorder) Open() error {
 		return fmt.Errorf("data root directory does not exist or not accessible: %s", dir)
 	} else if !st.IsDir() {
 		return fmt.Errorf("data root is not a directory: %s", dir)
+	} else {
+		me.logVerbose("Recorder opened.")
 	}
 	me.isopen = true
 	return nil
@@ -150,12 +175,18 @@ func (me *Recorder) Write(data Record) error {
 		return fmt.Errorf("invalid topic path: '%s'", topic)
 	}
 
+	if !me.filter(topic) {
+		me.logVerbose("Topic filtered out: ", topic)
+		return nil
+	}
+
 	ct := me.cache[topic]
 	unchanged := ct != nil && bytes.Equal(ct.Data(), data.Data())
 	me.cache[topic] = data
 	if unchanged {
 		// Todo: Minimal interval to log also same values.
 		// Todo: Maybe floating point compare with threshold?
+		me.logVerbose("Topic unchanged: " + topic)
 		return nil
 	}
 
@@ -181,6 +212,7 @@ func (me *Recorder) Write(data Record) error {
 	if bytes.ContainsAny(da, "\n") {
 		// Todo: There must be a better way for this, something like array.map() with insert option,
 		// -> slices.Whatever()?
+		me.logVerbose("Topic data need newline escaping: " + topic)
 		dac := make([]byte, 0, len(da)*2)
 		for _, v := range da {
 			if v != '\n' {
