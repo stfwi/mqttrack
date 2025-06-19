@@ -15,7 +15,11 @@ import (
 	"time"
 )
 
-const DEFAULT_CONFIG_FILE string = "conf/mqttrack.json"
+// Settable using -ldflags "-X main.GIT_VERSION=... -X ..."
+var DEFAULT_CONFIG_FILE string = "conf/mqttrack.json"
+var PROGRAM_NAME string = "mqttrack"
+var PROGRAM_VERSION string = "v1.0"
+var GIT_VERSION string = ""
 
 type AppSettings struct {
 	MQTT     mqttnode.Settings `json:"mqtt"`
@@ -61,7 +65,6 @@ func (me *AppSettings) SetExampleValues() {
 		CAFile:         "conf/mqtts-authority-cert.pem",
 		ClientCertFile: "conf/mqtts-with-client-certs/my-cert.pem",
 		ClientKeyFile:  "conf/mqtts-with-client-certs/key-for-my-cert.pem",
-		ClientKeyPass:  "**password-for-my-key-for-my-cert***",
 		Topics:         []string{"#", "or/specific/topic1", "or/specific/topic2"},
 	}
 	me.Recorder = recorder.Settings{
@@ -107,7 +110,19 @@ func processCLIArgs() (bool, AppSettings, error) {
 	return isVerboseShort, settings, nil
 }
 
+func programInfo() string {
+	ver := PROGRAM_NAME
+	if PROGRAM_VERSION != "" {
+		ver += " " + PROGRAM_VERSION
+	}
+	if GIT_VERSION != "" {
+		ver += " #" + GIT_VERSION
+	}
+	return ver
+}
+
 func main() {
+	log.Print("Starting ", programInfo())
 
 	// Settings
 	isverbose, settings, err := processCLIArgs()
@@ -130,6 +145,7 @@ func main() {
 		defer f.Close()
 		log.SetOutput(f)
 	}
+
 	if isverbose {
 		settings.Recorder.Verbose = true
 	}

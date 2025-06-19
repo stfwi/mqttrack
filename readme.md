@@ -34,7 +34,7 @@ Simple tracker/recorder for MQTT message data.
 
 ### Example Config
 
-  ```json
+  ```jsonc
   {
     "mqtt": {
       // Connection
@@ -49,13 +49,12 @@ Simple tracker/recorder for MQTT message data.
       "ca_cert_file": "conf/mqtts-authority-cert.pem",
       "client_cert_file": "conf/mqtts-with-client-certs/my-cert.pem",
       "client_key_file": "conf/mqtts-with-client-certs/key-for-my-cert.pem",
-      "client_key_password": "**password-for-my-key-for-my-cert***",
-      "validate_broker_cert": false,
+      "validate_certs": false,
       // Subscriptions
       "topics": [
-      "#", // <-- default everything if no topics specified
-      "or/specific/topic1",
-      "or/specific/topic2"
+        "#", // <-- default everything if no topics specified
+        "or/specific/topic1",
+        "or/specific/topic2"
       ]
     },
     "recorder": {
@@ -130,9 +129,5 @@ Data format in looks as in e.g. `plug2/power`:
   design-for-testability pending.
 - CI builing and testing methods pending.
 - Do not consider it production code.
-
-### Pending Functional Tasks
-
-  - [ ] Client certificates (config already there)
 
 73 .-.-.-

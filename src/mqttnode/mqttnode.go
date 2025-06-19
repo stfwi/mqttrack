@@ -55,8 +55,7 @@ type Settings struct {
 	CAFile         string   `json:"ca_cert_file"`
 	ClientCertFile string   `json:"client_cert_file"`
 	ClientKeyFile  string   `json:"client_key_file"`
-	ClientKeyPass  string   `json:"client_key_password"`
-	ValidateCerts  bool     `json:"validate_broker_cert"`
+	ValidateCerts  bool     `json:"validate_certs"`
 	Topics         []string `json:"topics"`
 }
 
@@ -102,18 +101,42 @@ func (me *Node) getClientOptions(settings *Settings) (*mqtt.ClientOptions, error
 	opts.SetUsername(settings.AuthUser)
 	opts.SetPassword(settings.AuthPassword)
 	if isTls {
-		certpool := x509.NewCertPool()
-		ca, err := os.ReadFile(settings.CAFile)
-		if err != nil {
-			log.Fatalln(err.Error())
+		var rootcas *x509.CertPool = nil
+		if settings.CAFile != "" {
+			if ca, err := os.ReadFile(settings.CAFile); err != nil {
+				log.Fatalln("CA file: ", err.Error())
+			} else {
+				rootcas = x509.NewCertPool()
+				rootcas.AppendCertsFromPEM(ca)
+			}
 		}
-		certpool.AppendCertsFromPEM(ca)
+
+		var certs []tls.Certificate = nil
+		if settings.ClientCertFile != "" {
+			if settings.ClientKeyFile == "" {
+				log.Fatalln("Invalid TLS config: If a client certificate is specified, the key file for it must also be given.")
+			} else if cert, err := tls.LoadX509KeyPair(settings.ClientCertFile, settings.ClientKeyFile); err != nil {
+				log.Fatalln("Client certificate:", err.Error())
+			} else {
+				certs = []tls.Certificate{cert}
+			}
+		}
+
+		// @todo: This needs review from a TLS Pro, not sure if I'm
+		// doing that right.
+		clientauth := tls.NoClientCert
+		if settings.ValidateCerts {
+			clientauth = tls.RequireAndVerifyClientCert
+		}
 		tlsc := tls.Config{
-			RootCAs:            certpool,
-			InsecureSkipVerify: true,
-			MinVersion:         tls.VersionTLS12,
-			MaxVersion:         tls.VersionTLS12,
+			MinVersion:   tls.VersionTLS12,
+			MaxVersion:   tls.VersionTLS13,
+			RootCAs:      rootcas,
+			ClientCAs:    rootcas,
+			Certificates: certs,
+			ClientAuth:   clientauth,
 		}
+
 		opts = opts.SetTLSConfig(&tlsc)
 	}
 
