@@ -51,8 +51,9 @@ Simple storage data tracker/recorder for MQTT data.
       ]
     },
     "recorder": {
-      // Data storage path
-      "rootdir": "./data"
+      // Data storage path, rotate at 1MB file size
+      "rootdir": "./data",
+      "rotate_at_size": 1024
     },
     // Logging
     "logfile": "stdout OR stderr OR file path"
@@ -115,8 +116,6 @@ Data format in looks as in e.g. `plug2/power`:
 
   - [ ] Client certificates (config already there)
   - [ ] Topic filter (regex/fnmatch based out-filter in addition to the subscription selection)
-  - [ ] Record file rotate with configurable max size (like logrotate, optional gzipping maybe)
-
 
 
 73 .-.-.-

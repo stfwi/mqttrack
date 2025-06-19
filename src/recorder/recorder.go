@@ -2,13 +2,21 @@ package recorder
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"log"
 	"os"
+	"os/exec"
 	"path"
+	"regexp"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 )
+
+const MaxNumRotateErrors uint = 20
 
 type Record interface {
 	Time() time.Time
@@ -17,21 +25,99 @@ type Record interface {
 }
 
 type Settings struct {
-	RootDirectory string `json:"rootdir"`
+	RootDirectory    string `json:"rootdir"`
+	RotationFileSize uint   `json:"rotate_at_size"`
+	GZipRotated      bool   `json:"gzip_rotated"`
 }
 
 type Recorder struct {
-	settings Settings
-	cache    map[string]Record
-	isopen   bool
+	settings        Settings
+	cache           map[string]Record
+	isopen          bool
+	numRotateErrors atomic.Uint32
 }
 
 func New(settings Settings) Recorder {
 	return Recorder{
-		settings: settings,
-		cache:    make(map[string]Record),
-		isopen:   false,
+		settings:        settings,
+		cache:           make(map[string]Record),
+		isopen:          false,
+		numRotateErrors: atomic.Uint32{}, // Log spam prevention
 	}
+}
+
+func (me *Recorder) rotate(filepath string) error {
+	if me.settings.RotationFileSize <= 0 || uint(me.numRotateErrors.Load()) > MaxNumRotateErrors {
+		return nil
+	}
+
+	if st, err := os.Stat(filepath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		} else {
+			return err
+		}
+	} else if !st.Mode().IsRegular() {
+		me.numRotateErrors.Add(1)
+		return fmt.Errorf("record file unexpectedly not a file: %s", filepath)
+	} else if st.Size()/1024 < int64(me.settings.RotationFileSize) {
+		return nil
+	}
+
+	if ls, err := os.ReadDir(path.Dir(filepath)); err != nil {
+		me.numRotateErrors.Add(1)
+		return fmt.Errorf("reading directory for record rotating failed: %s", path.Dir(filepath))
+	} else {
+		rotindex := 0
+		re := regexp.MustCompile("^" + regexp.QuoteMeta(path.Base(filepath)) + "\\.(\\d+)(\\.gz)?")
+		for _, fp := range ls {
+			if !fp.Type().IsRegular() {
+				continue
+			}
+			match := re.FindStringSubmatch(fp.Name())
+			if match == nil {
+				continue
+			} else {
+				ext, _ := strconv.Atoi(match[1]) // String guaranteed digits
+				if ext > rotindex {
+					rotindex = ext
+				}
+			}
+		}
+		rotindex += 1
+		newpath := fmt.Sprintf("%s.%d", filepath, rotindex)
+		if err := os.Rename(filepath, newpath); err != nil {
+			me.numRotateErrors.Add(1)
+			return fmt.Errorf("renaming record file failed %s->%s: %s", filepath, newpath, err.Error())
+		}
+		lastrec := fmt.Sprintf("%s.%d", filepath, rotindex-1)
+		if st, err := os.Stat(lastrec); err != nil {
+			return nil
+		} else if st.Mode().IsRegular() {
+			if err := me.gzip(lastrec); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (me *Recorder) gzip(filepath string) error {
+	if !me.settings.GZipRotated || uint(me.numRotateErrors.Load()) > MaxNumRotateErrors {
+		return nil
+	}
+	cmd := exec.Command("gzip", "-9", filepath)
+	if cmd.Err != nil {
+		me.numRotateErrors.Add(1)
+		return cmd.Err
+	}
+	go func() {
+		if err := cmd.Run(); err != nil {
+			me.numRotateErrors.Add(1)
+		}
+	}()
+	return nil
 }
 
 func (me *Recorder) Open() error {
@@ -76,9 +162,12 @@ func (me *Recorder) Write(data Record) error {
 	filePath := path.Join(me.settings.RootDirectory, topic)
 	dir := path.Dir(filePath)
 
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create topic directory '%s': %s", dir, err.Error())
+	}
+
+	if err := me.rotate(filePath); err != nil {
+		log.Print(err.Error())
 	}
 
 	fos, err := os.OpenFile(filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
@@ -105,8 +194,7 @@ func (me *Recorder) Write(data Record) error {
 	}
 
 	s := fmt.Sprintf("%13.2f,%s\n", ts, da)
-	n, err := fos.WriteString(s)
-	if err != nil {
+	if n, err := fos.WriteString(s); err != nil {
 		return fmt.Errorf("failed to write topic file '%s', %s", topic, err.Error())
 	} else if n != len(s) {
 		return fmt.Errorf("failed to write all bytes of topic file '%s'", topic)
