@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"mqttrack/jsonc"
 	"mqttrack/mqttnode"
 	"mqttrack/recorder"
 	"os"
@@ -28,7 +29,7 @@ func (me *AppSettings) Load(path string) error {
 		return err
 	}
 	conf := AppSettings{}
-	err = json.Unmarshal(text, &conf)
+	err = json.Unmarshal(jsonc.ToJSONInPlace(text), &conf)
 	if err != nil {
 		return err
 	}

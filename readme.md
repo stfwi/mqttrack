@@ -19,8 +19,9 @@ Simple tracker/recorder for MQTT message data.
 
   - Dep: Minimal GO version go1.24.2.
   - Dep: Optional GNU Make
-  - Dep: `eclipse/paho.mqtt.golang`, `gorilla/websocket` (implicit)
-  - Dep: `baulk/bloat/tree/master/utils/fnmatch` (implicit)
+  - Dep: `eclipse/paho.mqtt.golang`, `gorilla/websocket`
+  - Dep: `baulk/bloat/tree/master/utils/fnmatch`
+  - Dep: `tidwall/jsonc`
 
   - Build: `cd src && go build` or `make dist`
 
