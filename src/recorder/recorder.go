@@ -146,9 +146,9 @@ func (me *Recorder) logVerbose(v ...any) {
 func (me *Recorder) Open() error {
 	dir := me.settings.RootDirectory
 	if dir == "" {
-		return fmt.Errorf("output root directory of the recorder is not set")
+		return fmt.Errorf("ata root directory of the recorder is not set")
 	} else if st, err := os.Stat(dir); err != nil {
-		return fmt.Errorf("data root directory does not exist or not accessible: %s", dir)
+		return fmt.Errorf("data root directory does not exist or not accessible: %s (error=%s)", dir, err.Error())
 	} else if !st.IsDir() {
 		return fmt.Errorf("data root is not a directory: %s", dir)
 	} else {

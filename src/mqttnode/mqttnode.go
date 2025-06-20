@@ -124,17 +124,22 @@ func (me *Node) getClientOptions(settings *Settings) (*mqtt.ClientOptions, error
 
 		// @todo: This needs review from a TLS Pro, not sure if I'm
 		// doing that right.
+		noverify := false
 		clientauth := tls.NoClientCert
 		if settings.ValidateCerts {
 			clientauth = tls.RequireAndVerifyClientCert
+		} else if settings.BrokerIP == "localhost" || settings.BrokerIP == "::1" || settings.BrokerIP == "127.0.0.1" {
+			noverify = true
 		}
+
 		tlsc := tls.Config{
-			MinVersion:   tls.VersionTLS12,
-			MaxVersion:   tls.VersionTLS13,
-			RootCAs:      rootcas,
-			ClientCAs:    rootcas,
-			Certificates: certs,
-			ClientAuth:   clientauth,
+			MinVersion:         tls.VersionTLS12,
+			MaxVersion:         tls.VersionTLS13,
+			RootCAs:            rootcas,
+			ClientCAs:          rootcas,
+			Certificates:       certs,
+			ClientAuth:         clientauth,
+			InsecureSkipVerify: noverify,
 		}
 
 		opts = opts.SetTLSConfig(&tlsc)
