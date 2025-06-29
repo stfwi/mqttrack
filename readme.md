@@ -1,5 +1,8 @@
 # MQTTrack - CSV File Tree Topic Recorder
 
+![CI](https://github.com/stfwi/mqttrack/actions/workflows/ci-build.yml/badge.svg)
+
+
 Simple tracker/recorder for MQTT message data.
 
   - Stores MQTT topic payloads with timestamps (CSV format `timestamp,data`) in singulated
@@ -105,7 +108,7 @@ This structure was created by the application for the MQTT topics
       └── power
   ```
 
-Data format in looks as in e.g. `plug2/power`:
+The data format looks as in e.g. `plug2/power`:
 
   ```csv
   1750280696.01,159
@@ -125,6 +128,5 @@ Data format in looks as in e.g. `plug2/power`:
 ### Code Quality
 
 - *This is a first GO learning project. Later refactorings are likely.*
-- CI builing and testing methods pending.
 
 73 .-.-.-

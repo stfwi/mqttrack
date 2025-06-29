@@ -1,0 +1,34 @@
+name: CI Build & Test
+
+on:
+  push:
+    branches:
+      - main
+      - experimental
+    paths:
+      - "src/**"
+  pull_request:
+    branches:
+      - main
+      - experimental
+    paths:
+      - "src/**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Add Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.24.2
+    - name: Export program GIT version
+      run: |
+        hash7=$(git rev-parse --short ${{ github.sha }})
+        echo "GIT_VERSION=$hash7" >> $GITHUB_ENV
+    - name: Build native
+      run: make native
+    - name: Test
+      run: make test

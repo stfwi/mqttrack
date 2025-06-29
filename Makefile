@@ -25,11 +25,11 @@ mrproper:
 
 arm64:
 	@env GOOS=linux GOARCH=arm64 $(GO) build -C ./src -o ../dist/arm64/ -ldflags="-s -w -X main.GIT_VERSION=$(GIT_VERSION)"
-	@cp -R conf dist/arm64/
+	@[ ! -d conf ] || cp -R conf dist/arm64/
 
 native:
 	@$(GO) build -C ./src -o ../dist/native/ -ldflags="-s -w -X main.GIT_VERSION=$(GIT_VERSION)"
-	@cp -R conf dist/native/
+	@[ ! -d conf ] || cp -R conf dist/native/
 
 test:
 	@$(GO) test -C ./src -coverpkg=./recorder ./recorder -ldflags="-X main.GIT_VERSION=$(GIT_VERSION)"
