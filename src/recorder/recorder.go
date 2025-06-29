@@ -19,6 +19,8 @@ import (
 
 const MaxNumRotateErrors uint = 20
 
+var zipping atomic.Bool = atomic.Bool{}
+
 type Record interface {
 	Time() time.Time
 	Topic() string
@@ -103,7 +105,6 @@ func (me *Recorder) rotate(filepath string) error {
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -130,7 +131,11 @@ func (me *Recorder) gzip(filepath string) error {
 		return cmd.Err
 	}
 	go func() {
+		zipping.Store(true)
+		defer zipping.Store(false)
 		if err := cmd.Run(); err != nil {
+			me.numRotateErrors.Add(1)
+		} else if err := cmd.Wait(); err != nil {
 			me.numRotateErrors.Add(1)
 		}
 	}()

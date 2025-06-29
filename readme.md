@@ -125,9 +125,6 @@ Data format in looks as in e.g. `plug2/power`:
 ### Code Quality
 
 - *This is a first GO learning project. Later refactorings are likely.*
-- Unit testing methods (e.g. simulation of file I/O or network errors) and
-  design-for-testability pending.
 - CI builing and testing methods pending.
-- Do not consider it production code.
 
 73 .-.-.-
